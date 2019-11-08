@@ -16,8 +16,8 @@ defmodule Sandbox.Consumer do
   end
 
   def handle_events([{_, id}], _from, %State{last_id: nil} = state) do
-    # Since last_id is nil for whatever reason - maybe a crash ? - we
-    # accept all values and proceed as if it was normal
+    # Since last_id can be nil either at startup or after a crash,
+    # we accept all values and proceed as if it was normal
     ack_message(id)
     {:noreply, [], %State{state | last_id: id}}
   end
@@ -28,7 +28,7 @@ defmodule Sandbox.Consumer do
       ack_message(id)
       {:noreply, [], %State{state | last_id: id}}
     else
-      # We miss at least one message
+      # We miss a message
       {:stop, :missing_message, state}
     end
   end

@@ -12,7 +12,7 @@ defmodule Sandbox.Consumer do
   end
 
   def init(_) do
-    {:consumer, %State{}, subscribe_to: [{Producer, [max_demand: 1, min_demand: 0]}]}
+    {:consumer, %State{}, subscribe_to: [{Producer, []}]}
   end
 
   def handle_events([{_, id}], _from, %State{last_id: nil} = state) do
@@ -23,13 +23,20 @@ defmodule Sandbox.Consumer do
   end
 
   def handle_events([{_, id}], _from, state) do
-    if id == state.last_id + 1 do
-      # Ok, we have the events in strict order
-      ack_message(id)
-      {:noreply, [], %State{state | last_id: id}}
-    else
-      # We miss a message
-      {:stop, :missing_message, state}
+    cond do
+      id == state.last_id ->
+        # Duplicate, do nothing
+        Logger.warn("Received duplicate (#{id})")
+        {:noreply, [], state}
+
+      id == state.last_id + 1 ->
+        # Ok, we have the events in strict order
+        ack_message(id)
+        {:noreply, [], %State{state | last_id: id}}
+
+      true ->
+        # We miss a message
+        {:stop, :missing_message, state}
     end
   end
 

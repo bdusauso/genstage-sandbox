@@ -24,20 +24,14 @@ defmodule Sandbox.Consumer do
   end
 
   def handle_events([{_, id}], _from, state) do
-    cond do
-      id == state.last_id ->
-        # Duplicate, do nothing
-        Logger.warn("Received duplicate (#{id})")
-        {:noreply, [], state}
-
-      id == state.last_id + 1 ->
-        # Ok, we have the events in strict order
-        ack_message(id)
-        {:noreply, [], %State{state | last_id: id}}
-
-      true ->
-        # We miss a message
-        {:stop, :missing_message, state}
+    Logger.info("Processing message ##{id}")
+    if id == state.last_id + 1 do
+      # Ok, we have the events in strict order
+      ack_message(id)
+      {:noreply, [], %State{state | last_id: id}}
+    else
+      # We miss a message
+      {:stop, :missing_message, state}
     end
   end
 

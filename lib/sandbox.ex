@@ -4,15 +4,17 @@ defmodule Sandbox do
   """
 
   @doc """
-  Hello world.
+  Publish a message.
 
   ## Examples
 
-      iex> Sandbox.hello()
-      :world
+      iex> Sandbox.publish("Hello World!")
+      :ok
 
   """
-  def hello do
-    :world
+  def publish(message), do: GenServer.cast(Sandbox.Producer, {:publish, message})
+
+  def generate_messages(count \\ 5000) do
+    Enum.each(1..count, &publish("Message #{&1}"))
   end
 end

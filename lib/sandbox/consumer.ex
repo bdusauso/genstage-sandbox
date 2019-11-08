@@ -8,14 +8,15 @@ defmodule Sandbox.Consumer do
   defstruct last_id: nil
 
   def start_link(_) do
-    GenStage.start_link(__MODULE__, [], name: Consumer)
+    GenStage.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   def init(_) do
-    {:consumer, %State{}, subscribe_to: [{Producer, []}]}
+    {:consumer, %State{}, subscribe_to: [{Sandbox.Producer, [min_demand: 0, max_demand: 1]}]}
   end
 
   def handle_events([{_, id}], _from, %State{last_id: nil} = state) do
+    Logger.info("Processing message ##{id}")
     # Since last_id can be nil either at startup or after a crash,
     # we accept all values and proceed as if it was normal
     ack_message(id)
@@ -41,6 +42,6 @@ defmodule Sandbox.Consumer do
   end
 
   defp ack_message(id) do
-    send(Producer, {:ack, id})
+    send(Sandbox.Producer, {:ack, id})
   end
 end

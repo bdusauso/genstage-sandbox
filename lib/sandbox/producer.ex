@@ -9,11 +9,16 @@ defmodule Sandbox.Producer do
             counter: 0
 
   def start_link(_) do
-    GenStage.start_link(__MODULE__, [], name: Producer)
+    GenStage.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   def init(_) do
-    {:producer, %State{buffer: generate_messages()}}
+    {:producer, %State{}}
+  end
+
+  def handle_cast({:publish, payload}, %State{} = state) do
+    message = {payload, state.counter}
+    {:noreply, [message], %State{buffer: List.insert_at(state.buffer, -1, message)}}
   end
 
   def handle_demand(_, %State{buffer: []} = state), do: {:noreply, [], state}
@@ -36,6 +41,4 @@ defmodule Sandbox.Producer do
       {:noreply, [message], state}
     end
   end
-
-  defp generate_messages(), do: for i <- 1..5000, do: {"Message #{i}", i - 1}
 end

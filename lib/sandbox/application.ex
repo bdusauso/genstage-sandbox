@@ -8,6 +8,7 @@ defmodule Sandbox.Application do
   def start(_type, _args) do
     # List all child processes to be supervised
     children = [
+      {Sandbox.Fifo, [name: Sandbox.Buffer]},
       {Sandbox.Producer, []},
       {Sandbox.Consumer, []}
       # Starts a worker by calling: Sandbox.Worker.start_link(arg)

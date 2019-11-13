@@ -3,39 +3,34 @@ defmodule Sandbox.Consumer do
 
   require Logger
 
-  alias __MODULE__, as: State
-
-  defstruct last_id: nil
+  @state []
 
   def start_link(_) do
     GenStage.start_link(__MODULE__, [], name: __MODULE__)
   end
 
+  def status, do: GenStage.call(__MODULE__, :status)
+
   def init(_) do
-    {:consumer, %State{}, subscribe_to: [{Sandbox.Producer, [min_demand: 0, max_demand: 1]}]}
+    {:consumer, @state, subscribe_to: [{Sandbox.Producer, [min_demand: 0, max_demand: 1]}]}
   end
 
-  def handle_events([{_, id}], _from, %State{last_id: nil} = state) do
-    Logger.info("Processing message ##{id}")
-    # Since last_id can be nil either at startup or after a crash,
-    # we accept all values and proceed as if it was normal
-    ack_message(id)
-    {:noreply, [], %State{state | last_id: id}}
+  def handle_call(:status, _from, state), do: {:reply, state, [], state}
+
+  def handle_events([{payload, id}], {pid, _}, _) do
+    Logger.debug("Processing message ##{id}")
+
+    # Ok, we have the events in strict order
+    process_payload(payload)
+    ack_message(pid, id)
+    {:noreply, [], @state}
   end
 
-  def handle_events([{_, id}], _from, state) do
-    Logger.info("Processing message ##{id}")
-    if id == state.last_id + 1 do
-      # Ok, we have the events in strict order
-      ack_message(id)
-      {:noreply, [], %State{state | last_id: id}}
-    else
-      # We miss a message
-      {:stop, :missing_message, state}
-    end
+  defp ack_message(pid, id) do
+    send(pid, {:ack, id})
   end
 
-  defp ack_message(id) do
-    send(Sandbox.Producer, {:ack, id})
+  defp process_payload(_payload) do
+    Process.sleep(1000)
   end
 end

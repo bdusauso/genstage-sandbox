@@ -1,3 +1,4 @@
 %{
+  "elixir_uuid": {:hex, :elixir_uuid, "1.2.1", "dce506597acb7e6b0daeaff52ff6a9043f5919a4c3315abb4143f0b00378c097", [:mix], [], "hexpm"},
   "gen_stage": {:hex, :gen_stage, "0.14.3", "d0c66f1c87faa301c1a85a809a3ee9097a4264b2edf7644bf5c123237ef732bf", [:mix], [], "hexpm"},
 }

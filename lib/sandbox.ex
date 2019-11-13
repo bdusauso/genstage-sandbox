@@ -12,7 +12,7 @@ defmodule Sandbox do
       :ok
 
   """
-  def publish(message), do: GenServer.cast(Sandbox.Producer, {:publish, message})
+  def publish(message), do: GenServer.cast(Sandbox.Producer, {:publish, {message, UUID.uuid4()}})
 
   def generate_messages(count \\ 5000) do
     Enum.each(1..count, &publish("Message #{&1}"))

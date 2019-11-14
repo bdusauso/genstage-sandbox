@@ -38,6 +38,25 @@ defmodule Sandbox.Producer do
   def handle_info({:ack, id}, demand_left) do
     # Do nothing for now
     Logger.debug("Received ack #{id}")
-    {:noreply, [], demand_left}
+
+    cond do
+      match?({_, ^id}, peek(@buffer)) && demand_left > 0 ->
+        dequeue(@buffer)
+        {events, demand_left} =
+          if empty?(@buffer),
+            do: {[], demand_left},
+            else: {peek(@buffer), demand_left - 1}
+        {:noreply, events, demand_left}
+
+      match?({_, ^id}, peek(@buffer)) && demand_left == 0 ->
+        dequeue(@buffer)
+        {:noreply, [], demand_left}
+
+      demand_left > 0 ->
+        {:noreply, [peek(@buffer)], demand_left - 1}
+
+      true ->
+        {:noreply, [], demand_left}
+    end
   end
 end

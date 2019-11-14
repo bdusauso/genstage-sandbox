@@ -12,7 +12,7 @@ defmodule Sandbox.Consumer do
   def status, do: GenStage.call(__MODULE__, :status)
 
   def init(_) do
-    {:consumer, @state, subscribe_to: [{Sandbox.Producer, [min_demand: 0, max_demand: 1]}]}
+    {:consumer, @state, subscribe_to: [{Sandbox.Producer, []}]}
   end
 
   def handle_call(:status, _from, state), do: {:reply, state, [], state}

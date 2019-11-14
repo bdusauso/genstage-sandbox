@@ -8,8 +8,37 @@ The goal is to process events, *one at a time* and to provide resilience in case
 
 ## Usage
 
-* Open a console: `iex -S mix`
-* Send some messages: `for i <- 1..60, do: Sandbox.publish("Message #{i}")`
-* Kill the consumer and watch the message being sent again: `Sandbox.Consumer |> Process.whereis() |> Process.exit(:kill)`
+**Note:** the default logger level is `:debug`
 
-**Note**: the processing time of each message is set by default to 1 second.
+First, declare a module
+
+```elixir
+defmodule MyModule do
+  use Sandbox
+  
+  def start_link(_opts) do
+    Sandbox.start_link(__MODULE__, [])
+  end
+end
+```
+
+Then start it
+
+```
+iex> {:ok, _} = MyModule.start_link([])
+{:ok, #PID<0.202.0>}
+
+iex> MyModule.publish("Hello World")
+:ok
+
+[debug] Publish message #8511ac3f-cd5b-4bdd-8cb5-d93ef2d71c45
+[debug] Processing message #8511ac3f-cd5b-4bdd-8cb5-d93ef2d71c45
+[debug] Received ack for message #8511ac3f-cd5b-4bdd-8cb5-d93ef2d71c45
+```
+
+If you want to see message republish in action, try this:
+
+```
+for i <- 1..10, do: Foo.publish("Message #{i}")
+Foo.consumer_name() |> Process.whereis() |> Process.exit(:kill)
+```

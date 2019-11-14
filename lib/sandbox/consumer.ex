@@ -5,14 +5,15 @@ defmodule Sandbox.Consumer do
 
   @state []
 
-  def start_link(_) do
-    GenStage.start_link(__MODULE__, [], name: __MODULE__)
+  def start_link(opts) do
+    GenStage.start_link(__MODULE__, opts, Keyword.take(opts, [:name]))
   end
 
   def status, do: GenStage.call(__MODULE__, :status)
 
-  def init(_) do
-    {:consumer, @state, subscribe_to: [{Sandbox.Producer, []}]}
+  def init(opts) do
+    producer = Keyword.fetch!(opts, :producer)
+    {:consumer, @state, subscribe_to: [{producer, []}]}
   end
 
   def handle_call(:status, _from, state), do: {:reply, state, [], state}

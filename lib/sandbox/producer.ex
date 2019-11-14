@@ -5,37 +5,43 @@ defmodule Sandbox.Producer do
 
   import Sandbox.Fifo, except: [start_link: 1]
 
-  @buffer Sandbox.Buffer
-
   defmodule State do
-    defstruct to_ack: nil,
+    defstruct buffer: nil,
+              to_ack: nil,
               consumer: nil
   end
 
-  def start_link(_) do
-    GenStage.start_link(__MODULE__, [], name: __MODULE__)
+  def start_link(opts) do
+    GenStage.start_link(__MODULE__, opts, [])
   end
 
-  def init(_) do
+  def init(opts) do
+    name = Keyword.fetch!(opts, :name)
+    buffer = Keyword.fetch!(opts, :buffer)
+
     Process.flag(:trap_exit, true)
-    {:producer, %State{}}
+    Process.register(self(), name)
+
+    {:producer, %State{buffer: buffer}}
   end
 
-  def handle_cast({:publish, message}, %State{consumer: nil} = state) do
-    Logger.debug("Publish message - #{inspect(state)}")
-    enqueue(@buffer, message)
-    to_ack = if state.to_ack, do: state.to_ack, else: peek(@buffer)
+  def handle_cast({:publish, {_, id} = message}, %State{consumer: nil} = state) do
+    Logger.debug("Publish message ##{id}")
+
+    enqueue(state.buffer, message)
+    to_ack = if state.to_ack, do: state.to_ack, else: peek(state.buffer)
 
     {:noreply, [], %State{state | to_ack: to_ack}}
   end
 
-  def handle_cast({:publish, message}, %State{} = state) do
-    Logger.debug("Publish message - #{inspect(state)}")
-    enqueue(@buffer, message)
+  def handle_cast({:publish, {_, id} = message}, %State{} = state) do
+    Logger.debug("Publish message ##{id}")
+
+    enqueue(state.buffer, message)
     {events, to_ack} =
       case state.to_ack do
         nil ->
-          elem = peek(@buffer)
+          elem = peek(state.buffer)
           {[elem], elem}
 
         _ ->
@@ -54,9 +60,9 @@ defmodule Sandbox.Producer do
   def handle_demand(_, %State{to_ack: nil} = state) do
     Logger.debug("Received demand - #{inspect(state)}")
     {events, to_ack} =
-      if empty?(@buffer),
+      if empty?(state.buffer),
         do: {[], nil},
-        else: {[peek(@buffer), peek(@buffer)]}
+        else: {[peek(state.buffer), peek(state.buffer)]}
 
     {:noreply, events, %State{state | to_ack: to_ack}}
   end
@@ -72,12 +78,12 @@ defmodule Sandbox.Producer do
   end
 
   def handle_info({:ack, id}, %State{to_ack: {_, id}} = state) do
-    Logger.debug("Received ack #{id}")
-    dequeue(@buffer)
+    Logger.debug("Received ack for message ##{id}")
+    dequeue(state.buffer)
     {events, to_ack} =
-      if empty?(@buffer),
+      if empty?(state.buffer),
         do: {[], nil},
-        else: {[peek(@buffer)], peek(@buffer)}
+        else: {[peek(state.buffer)], peek(state.buffer)}
 
     {:noreply, events, %State{state | to_ack: to_ack}}
   end

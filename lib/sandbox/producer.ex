@@ -7,56 +7,84 @@ defmodule Sandbox.Producer do
 
   @buffer Sandbox.Buffer
 
+  defmodule State do
+    defstruct to_ack: nil,
+              consumer: nil
+  end
+
   def start_link(_) do
     GenStage.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   def init(_) do
-    {:producer, 0}
+    Process.flag(:trap_exit, true)
+    {:producer, %State{}}
   end
 
-  def handle_cast({:publish, message}, 0) do
+  def handle_cast({:publish, message}, %State{consumer: nil} = state) do
+    Logger.debug("Publish message - #{inspect(state)}")
     enqueue(@buffer, message)
-    {:noreply, [], 0}
+    to_ack = if state.to_ack, do: state.to_ack, else: peek(@buffer)
+
+    {:noreply, [], %State{state | to_ack: to_ack}}
   end
 
-  def handle_cast({:publish, message}, demand) do
+  def handle_cast({:publish, message}, %State{} = state) do
+    Logger.debug("Publish message - #{inspect(state)}")
     enqueue(@buffer, message)
-    event = dequeue(@buffer)
-    {:noreply, [event], demand - 1}
+    {events, to_ack} =
+      case state.to_ack do
+        nil ->
+          elem = peek(@buffer)
+          {[elem], elem}
+
+        _ ->
+          {[], state.to_ack}
+      end
+
+    {:noreply, events, %State{state | to_ack: to_ack}}
   end
 
-  def handle_demand(_, demand_left) do
-    {events, demand_left} =
+  def handle_demand(_, %State{consumer: nil} = state) do
+    Logger.debug("Received demand - #{inspect(state)}")
+    # Can we get here ?
+    {:noreply, [], state}
+  end
+
+  def handle_demand(_, %State{to_ack: nil} = state) do
+    Logger.debug("Received demand - #{inspect(state)}")
+    {events, to_ack} =
       if empty?(@buffer),
-        do: {[], demand_left + 1},
-        else: {[dequeue(@buffer)], demand_left}
+        do: {[], nil},
+        else: {[peek(@buffer), peek(@buffer)]}
 
-    {:noreply, events, demand_left}
+    {:noreply, events, %State{state | to_ack: to_ack}}
   end
 
-  def handle_info({:ack, id}, demand_left) do
-    # Do nothing for now
+  def handle_demand(_, %State{} = state) do
+    Logger.debug("Received demand - #{inspect(state)}")
+    {:noreply, [state.to_ack], state}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, %State{consumer: pid} = state) do
+    Logger.debug("Consumer down, cleaning state")
+    {:noreply, [], %State{state | consumer: nil}}
+  end
+
+  def handle_info({:ack, id}, %State{to_ack: {_, id}} = state) do
     Logger.debug("Received ack #{id}")
+    dequeue(@buffer)
+    {events, to_ack} =
+      if empty?(@buffer),
+        do: {[], nil},
+        else: {[peek(@buffer)], peek(@buffer)}
 
-    cond do
-      match?({_, ^id}, peek(@buffer)) && demand_left > 0 ->
-        dequeue(@buffer)
-        {events, demand_left} =
-          if empty?(@buffer),
-            do: {[], demand_left},
-            else: {peek(@buffer), demand_left - 1}
-        {:noreply, events, demand_left}
+    {:noreply, events, %State{state | to_ack: to_ack}}
+  end
 
-      match?({_, ^id}, peek(@buffer)) && demand_left == 0 ->
-        dequeue(@buffer)
-        {:noreply, [], demand_left}
-
-      demand_left > 0 ->
-        {:noreply, [peek(@buffer)], demand_left - 1}
-
-      true ->
-        {:noreply, [], demand_left}
-    end
+  def handle_subscribe(:consumer, _options, {pid, _}, %State{} = state) do
+    Logger.debug("Received subscription from #{inspect(pid)}")
+    Process.monitor(pid)
+    {:automatic, %State{state | consumer: pid}}
   end
 end

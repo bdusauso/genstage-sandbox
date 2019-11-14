@@ -20,9 +20,9 @@ defmodule Sandbox.Consumer do
   def handle_events([{payload, id}], {pid, _}, _) do
     Logger.debug("Processing message ##{id}")
 
-    # Ok, we have the events in strict order
     process_payload(payload)
     ack_message(pid, id)
+
     {:noreply, [], @state}
   end
 

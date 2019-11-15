@@ -15,7 +15,7 @@ First, declare a module
 ```elixir
 defmodule MyModule do
   use Sandbox
-  
+
   def start_link(_opts) do
     Sandbox.start_link(__MODULE__, [])
   end
@@ -39,6 +39,6 @@ iex> MyModule.publish("Hello World")
 If you want to see message republish in action, try this:
 
 ```
-for i <- 1..10, do: Foo.publish("Message #{i}")
-Foo.consumer_name() |> Process.whereis() |> Process.exit(:kill)
+for i <- 1..10, do: MyModule.publish("Message #{i}")
+MyModule.consumer_name() |> Process.whereis() |> Process.exit(:kill)
 ```

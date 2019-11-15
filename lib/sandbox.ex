@@ -25,7 +25,7 @@ defmodule Sandbox do
           :ok
 
       """
-      def publish(message), do: GenServer.cast(producer_name(), {:publish, {message, UUID.uuid4()}})
+      def publish(message), do: GenServer.call(producer_name(), {:publish, {message, UUID.uuid4()}})
 
       def generate_messages(count \\ 5000) do
         Enum.each(1..count, &publish("Message #{&1}"))

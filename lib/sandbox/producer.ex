@@ -24,16 +24,16 @@ defmodule Sandbox.Producer do
     {:producer, %State{buffer: buffer}}
   end
 
-  def handle_cast({:publish, {_, id} = message}, %State{consumer: nil} = state) do
+  def handle_call({:publish, {_, id} = message}, _from, %State{consumer: nil} = state) do
     Logger.debug("Publish message ##{id}")
 
     enqueue(state.buffer, message)
     to_ack = if state.to_ack, do: state.to_ack, else: peek(state.buffer)
 
-    {:noreply, [], %State{state | to_ack: to_ack}}
+    {:reply, {:ok, message}, [], %State{state | to_ack: to_ack}}
   end
 
-  def handle_cast({:publish, {_, id} = message}, %State{} = state) do
+  def handle_call({:publish, {_, id} = message}, _from, %State{} = state) do
     Logger.debug("Publish message ##{id}")
 
     enqueue(state.buffer, message)
@@ -47,7 +47,7 @@ defmodule Sandbox.Producer do
           {[], state.to_ack}
       end
 
-    {:noreply, events, %State{state | to_ack: to_ack}}
+    {:reply, {:ok, message}, events, %State{state | to_ack: to_ack}}
   end
 
   def handle_demand(_, %State{consumer: nil} = state) do

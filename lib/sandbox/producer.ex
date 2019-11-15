@@ -19,7 +19,6 @@ defmodule Sandbox.Producer do
     name = Keyword.fetch!(opts, :name)
     buffer = Keyword.fetch!(opts, :buffer)
 
-    Process.flag(:trap_exit, true)
     Process.register(self(), name)
 
     {:producer, %State{buffer: buffer}}
